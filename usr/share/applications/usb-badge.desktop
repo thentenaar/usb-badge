@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=USB Badge GUI
+Exec=usb-badge-gui
+Icon=/usr/share/usb-badge/usb-badge.png
+Terminal=false
+Categories=Utility;
