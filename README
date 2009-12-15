@@ -15,9 +15,14 @@ Installation of binary packages:
 
 Debian:
 	* Add the following apt source:
-		deb http://hentenaar.com/packages deb/
+		deb http://hentenaar.com/packages/deb ARCH/
+	  (replacing ARCH with your architecture (e.g. amd64)
 	* apt-get update
 	* apt-get install package
+
+		OR
+	* Download the package from: http://hentenaar.com/packages/deb/ARCH
+	* Install with dpkg, gdebi, etc.
 
 Rpm:
 	* Download the package from http://hentenaar.com/packages/rpm
