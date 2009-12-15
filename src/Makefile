@@ -44,9 +44,9 @@ deb: usb-badge-gui
 
 rpm: deb
 	@alien -r ../usb-badge_$(VERSION)-1_$(ARCH).deb
-	@mv usb-badge_$(VERSION)-1_$(ARCH).rpm ..
+	@mv usb-badge-$(VERSION)-2.$(ARCH).rpm ..
 
 tgz: deb
 	@alien -t ../usb-badge_$(VERSION)-1_$(ARCH).deb
-	@mv usb-badge_$(VERSION)-1_$(ARCH).tgz ..
+	@mv usb-badge-$(VERSION).tgz ../usb-badge-$(VERSION).$(ARCH).tgz
 

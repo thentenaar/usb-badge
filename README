@@ -11,7 +11,7 @@ This package requires GTK+ >= 2.14.0, libusb >= 0.1 (not 1.x), and libhid >= 2.6
 
 I wrote this for the fun and convenience of people who might have/use this product, and for those who might be interested in how it works.
 
-Installation of binary packages (available soon):
+Installation of binary packages:
 
 Debian:
 	* Add the following apt source:
@@ -23,11 +23,6 @@ Rpm:
 	* Download the package from http://hentenaar.com/packages/rpm
 	* Install the package with: rpm -ivh package.rpm
 	
-Slackware: 
-	* Download the package from http://hentenaar.com/packages/tgz
-	* Install the package with: installpkg package.tgz
-
-
 If you have issues running this as a non-root user, be sure to double-check your usbfs permissions. Also, double-check any udev rules you may have installed. If you see the following, your permissions probably aren't quite how you'd like them:
 
 $ ls -l /dev/bus/usb/001
@@ -37,7 +32,7 @@ $
 
 In order to make this a bit more as you'd expect, you'll have to create 2 custom udev rules. Here's how to do it:
 
-1. Create a file in /etc/udev/rules.d such as 1-fix_usb_perms.rules
+1. Create a file (as root) in /etc/udev/rules.d such as 1-fix_usb_perms.rules
 2. Add the following rules into the file:
 
 SUBSYSTEM=="usb_device", GROUP="plugdev", MODE="0664"
