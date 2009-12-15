@@ -28,4 +28,21 @@ Slackware:
 	* Install the package with: installpkg package.tgz
 
 
-If you have issues running this as a non-root user, be sure to double-check your usbfs permissions. 
+If you have issues running this as a non-root user, be sure to double-check your usbfs permissions. Also, double-check any udev rules you may have installed. If you see the following, your permissions probably aren't quite how you'd like them:
+
+$ ls -l /dev/bus/usb/001
+total 0
+crw-rw-r-- 1 root root 189, 0 2009-12-14 09:12 001
+$
+
+In order to make this a bit more as you'd expect, you'll have to create 2 custom udev rules. Here's how to do it:
+
+1. Create a file in /etc/udev/rules.d such as 1-fix_usb_perms.rules
+2. Add the following rules into the file:
+
+SUBSYSTEM=="usb_device", GROUP="plugdev", MODE="0664"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", GROUP="plugdev", MODE="0664"
+
+3. Ensure your user is a member of the group you specified ("plugdev" in this example.) Note that this will give any user in the specified group read and write access to the device.
+
+In most cases, udev will automatically pickup the changes. Just to be sure, unplug and replug your device. Then try to run the program again.
