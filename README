@@ -18,7 +18,7 @@ Debian:
 		deb http://hentenaar.com/packages/deb ARCH/
 	  (replacing ARCH with your architecture (e.g. amd64)
 	* apt-get update
-	* apt-get install package
+	* apt-get install usb-badge
 
 		OR
 	* Download the package from: http://hentenaar.com/packages/deb/ARCH
@@ -26,7 +26,7 @@ Debian:
 
 Rpm:
 	* Download the package from http://hentenaar.com/packages/rpm
-	* Install the package with: rpm -ivh package.rpm
+	* Install the package with: rpm -ivh --force usb-badge-*.rpm
 	
 If you have issues running this as a non-root user, be sure to double-check your usbfs permissions. Also, double-check any udev rules you may have installed. If you see the following, your permissions probably aren't quite how you'd like them:
 
