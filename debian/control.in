@@ -1,6 +1,6 @@
 Package: usb-badge
 Source: usb-badge
-Version: 1.0-1
+Version: @VERSION@-1
 License: GPLv3
 Installed-Size: 66
 Section: misc
@@ -9,6 +9,7 @@ Architecture: @ARCH@
 Maintainer: Tim Hentenaar <tim@hentenaar.com>
 Homepage: http://hentenaar.com
 Depends: libgtk2.0-0 (>= 2.14.0), libhid0 (>= 0.2.15)
-Provides: usb-badge-1.0-1
+Provides: usb-badge-@VERSION@-1
 Description: Control software for the Inland USB LED Badge.
- This package provides a GUI for manipulating the badge. It will be visible under the Applications -> Accessories menu.
+ This package provides a GUI, and CLI, for manipulating the badge. It will be visible under the Applications -> Accessories menu.
+ The CLI program is named 'usb-badge-cli'

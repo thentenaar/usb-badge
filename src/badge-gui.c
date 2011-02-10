@@ -47,7 +47,7 @@ static void send_cb(GtkWidget *widget, gpointer data) {
 		if (i < 4) { /* Text (ASCII or ISO-8859-1 according to the docs) */
 			tmp = g_convert(gtk_entry_get_text(GTK_ENTRY(text[i])),-1,"ISO-8859-1","UTF-8",NULL,NULL,NULL);
 			free(badge->messages[i].data);
-			badge->messages[i].data = strdup(tmp);
+			badge->messages[i].data   = strdup(tmp);
 			badge->messages[i].length = strlen(tmp);
 			g_free(tmp);
 		} else badge->messages[i].length = bitmp[i-4]->length; 
@@ -111,7 +111,7 @@ int main(int argc, char **argv) {
 		
 		if (i < 5) {
 			/* Text entry */
-			text[i-1] = gtk_entry_new_with_max_length(140);
+			text[i-1] = gtk_entry_new_with_max_length(136);
 			gtk_entry_set_text(GTK_ENTRY(text[i-1]),badge->messages[i-1].data);
 			gtk_table_attach_defaults(GTK_TABLE(table),text[i-1],1,2,i,i+1);
 		} else { 

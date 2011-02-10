@@ -1,0 +1,2 @@
+ATTRS{idVendor}=="04d9", ATTRS{idProduct}=="e002", SUBSYSTEM=="usb", MODE="660", GROUP="plugdev"
+ATTRS{idVendor}=="04d9", ATTRS{idProduct}=="e002", SUBSYSTEM=="usb", TEST=="power/control", ATTR{power/control}="auto", ATTR{power/autosuspend}="0"

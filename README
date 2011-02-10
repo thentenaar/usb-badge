@@ -2,6 +2,7 @@ In order to build/run the utility, please do:
 
 $ cd src ; make all
 $ ./usb-badge-gui
+(To run the CLI utility, simply run ./usb-badge-cli -h after building.)
 
 To install, simply 'make install'. This will even install a .desktop file, so that the utility may be run from the Applications -> Accessories menu.
 
@@ -28,21 +29,5 @@ Rpm:
 	* Download the package from http://hentenaar.com/packages/rpm
 	* Install the package with: rpm -ivh --force usb-badge-*.rpm
 	
-If you have issues running this as a non-root user, be sure to double-check your usbfs permissions. Also, double-check any udev rules you may have installed. If you see the following, your permissions probably aren't quite how you'd like them:
+If you have issues running this as a non-root user, be sure to double-check your usbfs permissions. By default, a set of udev rules (contributed by Jeff Jahr) will be installed to /etc/udev/rules.d that should satisfy this issue, and allow the badge to display the selected message while still attached via USB. Assuming the kernel supports the "autosuspend" feature, and that the badge isn't claimed by any other device (i.e. hidraw/hiddev).
 
-$ ls -l /dev/bus/usb/001
-total 0
-crw-rw-r-- 1 root root 189, 0 2009-12-14 09:12 001
-$
-
-In order to make this a bit more as you'd expect, you'll have to create 2 custom udev rules. Here's how to do it:
-
-1. Create a file (as root) in /etc/udev/rules.d such as 1-fix_usb_perms.rules
-2. Add the following rules into the file:
-
-SUBSYSTEM=="usb_device", GROUP="plugdev", MODE="0664"
-SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", GROUP="plugdev", MODE="0664"
-
-3. Ensure your user is a member of the group you specified ("plugdev" in this example.) Note that this will give any user in the specified group read and write access to the device.
-
-In most cases, udev will automatically pickup the changes. Just to be sure, unplug and replug your device. Then try to run the program again.

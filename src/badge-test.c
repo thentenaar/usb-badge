@@ -29,7 +29,7 @@ int main(int argc, char **argv) {
 
 	/* Allocate a new badge structure, as well as the USB device */
 	if (!(badge = badge_new())) {
-		printf("Unable to allocate badge structure!\n");
+		printf("Unable to allocate badge structure or insufficent permissions!\n");
 		exit(1);
 	}
 
