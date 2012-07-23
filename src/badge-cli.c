@@ -41,14 +41,15 @@ const char *actions[6] = {
 
 /* Decodes a hex string into bytes, overwriting the hex string. */
 int hexdec(char *hex) {
-	char bytestr[] = "00";
+	char bytestr[] = "\0\0";
 	int numbytes, hexlen = strlen(hex);
-	for (numbytes = 0; numbytes*2 < hexlen; numbytes++) {
-		bytestr[0] = hex[numbytes*2];
-		bytestr[1] = hex[numbytes*2+1];
-		long int l1 = strtol(bytestr, NULL, 16);
-		hex[numbytes] = l1;
+	hexlen = (hexlen % 2) ? hexlen-- : hexlen;
+
+	for (numbytes=0;numbytes < (hexlen >> 1);numbytes++) {
+		memcpy(bytestr,hex[numbytes << 1],2);
+		hex[numbytes] = (char)(strtol(bytestr,bytestr+2,16) & 0xff);
 	}
+
 	return numbytes;
 }
 
@@ -91,8 +92,7 @@ void usage(char *pn) {
 
 int main(int argc, char **argv) {
 	int i; badge_t *badge; int optc,args[4] = { -1,-1,-1,-1 },dump=0;
-	char *message=NULL;
-	int msglen=0;
+	char *message=NULL; int msglen=0;
 
 	/* Parse arguments */
 	while ((optc = getopt(argc,argv,"hdl:i:a:m:s:x:")) != -1) {
@@ -151,7 +151,7 @@ int main(int argc, char **argv) {
 			if (args[3] > -1)  badge->messages[args[1]].speed  = args[3];
 			if (message && args[1] < 6) {
 				if (msglen > 136) msglen = 136;
-				badge->messages[args[1]].data   = malloc(msglen);
+				badge->messages[args[1]].data = malloc(msglen);
 				memcpy(badge->messages[args[1]].data, message, msglen);
 				badge->messages[args[1]].length = msglen;
 			}
