@@ -4,6 +4,8 @@
  *
  * CLI code and udev rules proposed and contributed by Jeff Jahr - http://www.jeffrika.com adapted and integrated by Tim Hentenaar.
  *
+ * Option for sending raw hex contributed by Cody Boisclair (http://www.zone38.net/).
+ *
  * This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the 
  * Free Software Foundation, either version 3 of the License, or (at your option) any later version. This program is distributed in the hope that 
  * it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
@@ -37,6 +39,19 @@ const char *actions[6] = {
 	break;\
 }
 
+/* Decodes a hex string into bytes, overwriting the hex string. */
+int hexdec(char *hex) {
+	char bytestr[] = "00";
+	int numbytes, hexlen = strlen(hex);
+	for (numbytes = 0; numbytes*2 < hexlen; numbytes++) {
+		bytestr[0] = hex[numbytes*2];
+		bytestr[1] = hex[numbytes*2+1];
+		long int l1 = strtol(bytestr, NULL, 16);
+		hex[numbytes] = l1;
+	}
+	return numbytes;
+}
+
 /* Display usage info */
 void usage(char *pn) {
 	printf("USB Badge CLI\n");
@@ -59,6 +74,7 @@ void usage(char *pn) {
 	printf("\t\t4 - Flash                   5 - Freeze\n");
 	printf("\t-s Set the update speed of the message. Valid values are 0-7.\n");
 	printf("\t-m Set the message text (136 chars max.)\n\n");
+	printf("\t-x Set the message data as a hexadecimal string (136 bytes max.)\n\n");
 
 	printf("Examples:\n");
 	printf("\tDumping all message data:     %s -d\n",pn);
@@ -74,18 +90,28 @@ void usage(char *pn) {
 }
 
 int main(int argc, char **argv) {
-	int i; badge_t *badge; int optc,args[4] = { -1,-1,-1,-1 },dump=0; 
+	int i; badge_t *badge; int optc,args[4] = { -1,-1,-1,-1 },dump=0;
 	char *message=NULL;
+	int msglen=0;
 
 	/* Parse arguments */
-	while ((optc = getopt(argc,argv,"hdl:i:a:m:s:")) != -1) {
+	while ((optc = getopt(argc,argv,"hdl:i:a:m:s:x:")) != -1) {
 		switch (optc) {
 			default: 
 			case 'h': usage(argv[0]); exit(0);              break; 
 			case 'd': dump = 1;                             break;
-			case 'm': if (optarg) message = strdup(optarg); break;
+			case 'm': if (optarg) {
+				message = strdup(optarg);
+				msglen = strlen(message);
+			}
+			break;
+			case 'x': if (optarg) {
+				message = strdup(optarg);
+				msglen = hexdec(message);
+			}
+			break;
 			PROCESS_ARG('a',0,5);
-			PROCESS_ARG('i',1,3);
+			PROCESS_ARG('i',1,5);
 			PROCESS_ARG('l',2,4);
 			PROCESS_ARG('s',3,7);
 		}
@@ -123,10 +149,11 @@ int main(int argc, char **argv) {
 		if (args[1] != -1) {
 			if (args[0] > -1)  badge->messages[args[1]].action = args[0];
 			if (args[3] > -1)  badge->messages[args[1]].speed  = args[3];
-			if (message && args[1] < 4) {
-				if (strlen(message) > 136) *(message+136) = 0;
-				badge->messages[args[1]].data   = strdup(message);
-				badge->messages[args[1]].length = strlen(message);
+			if (message && args[1] < 6) {
+				if (msglen > 136) msglen = 136;
+				badge->messages[args[1]].data   = malloc(msglen);
+				memcpy(badge->messages[args[1]].data, message, msglen);
+				badge->messages[args[1]].length = msglen;
 			}
 		}
 
