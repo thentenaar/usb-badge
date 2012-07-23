@@ -74,6 +74,7 @@ void usage(char *pn) {
 	printf("\t\t4 - Flash                   5 - Freeze\n");
 	printf("\t-s Set the update speed of the message. Valid values are 0-7.\n");
 	printf("\t-m Set the message text (136 chars max.)\n\n");
+	printf("\t-x Set the message data as a hexadecimal string (136 bytes max.)\n\n");
 
 	printf("Examples:\n");
 	printf("\tDumping all message data:     %s -d\n",pn);
