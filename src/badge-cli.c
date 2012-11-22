@@ -46,7 +46,7 @@ int hexdec(char *hex) {
 	hexlen = (hexlen % 2) ? hexlen-- : hexlen;
 
 	for (numbytes=0;numbytes < (hexlen >> 1);numbytes++) {
-		memcpy(bytestr,hex[numbytes << 1],2);
+		memcpy(bytestr,&hex[numbytes << 1],2);
 		hex[numbytes] = (char)(strtol(bytestr,bytestr+2,16) & 0xff);
 	}
 
