@@ -9,43 +9,75 @@
 #ifndef BADGE_H
 #define BADGE_H
 
-enum badge_msg_type{
-	BADGE_MSG_TYPE_TEXT  = 0,
-	BADGE_MSG_TYPE_BITMAP
+/**
+ * Message types
+ */
+#define BADGE_MSG_TYPE_TEXT   0
+#define BADGE_MSG_TYPE_BITMAP 1
+
+/**
+ * Bounds for luminance value
+ */
+#define MIN_LUMINANCE 2 
+#define MAX_LUMINANCE 4
+
+/**
+ * Bounds for message speed
+ */
+#define MIN_SPEED 0
+#define MAX_SPEED 7
+
+/**
+ * Bounds for action
+ */
+#define MIN_ACTION 0
+#define MAX_ACTION 5
+
+/**
+ *
+ */
+struct badge_message {
+	unsigned char type;
+	size_t        length;
+	unsigned char speed;
+	unsigned char action;
+	unsigned char *data;
 };
 
-typedef struct badge_message {
-	enum badge_msg_type type;
-	unsigned short length;
-	unsigned char  speed;
-	unsigned char  action;
-	char          *data;
-} badge_message_t;
-
-typedef struct badge {
-	unsigned int     luminance;
-	badge_message_t  messages[6];
-	void            *device;
-} badge_t;
+#define N_MESSAGES 6
 
 /**
- * Create a new instance of badge_t and claim the first badge found.
+ *
  */
-badge_t *badge_new();
+struct badge {
+	unsigned char        luminance;
+	struct badge_message messages[N_MESSAGES];
+};
 
 /**
- * Set all data on the badge 
+ * Claim the first badge found.
+ *
+ * \return pointer to the \a badge struct if found, NULL otherwise.
  */
-void badge_set_data(badge_t *badge);
+struct badge *badge_open(void);
+
+/**
+ * Set all data on the badge.
+ *
+ * \return 0 on success, -1 on error.
+ */
+int badge_set_data(void);
 
 /**
  * Get all values from the badge.
+ *
+ * \return 0 on success, -1 on error.
  */
-void badge_get_data(badge_t *badge);
+int badge_get_data(void);
 
 /**
- * Free the badge
+ * Release the badge.
  */
-void badge_free(badge_t *badge);
+void badge_close(void);
 
 #endif	/* BADGE_H */

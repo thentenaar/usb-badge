@@ -9,211 +9,258 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <hid.h>
-#include <endian.h>
-
+#include <hidapi/hidapi.h>
 #include "badge.h"
 
-/* Macros to handle byte swapping */
-#if __BYTE_ORDER == __BIG_ENDIAN 
-#define SET_OFFSET(b,x) {\
-	*(unsigned char *)(b+4) = ((x) & 0x00ff);\
-	*(unsigned char *)(b+5) = (((x) & 0xff00) >> 8);\
-}
-#else
-#define SET_OFFSET(b,x) *(unsigned short *)(b+4) = (x);
-#endif
+/* Badge VID, PID, and interface */
+#define BADGE_VID       0x04d9
+#define BADGE_PID       0xe002
+#define BADGE_INTERFACE 0
 
-#if __BYTE_ORDER == __BIG_ENDIAN 
-#define SET_LEN(b,x) {\
-	*(unsigned char *)(b+6) = ((x) & 0x00ff);\
-	*(unsigned char *)(b+7) = (((x) & 0xff00) >> 8);\
-}
-#else
-#define SET_LEN(b,x) *(unsigned short *)(b+6) = (x);
-#endif
+/* Usage page and Usage */
+#define BADGE_USAGE_PAGE 0xffa0
+#define BADGE_USAGE      0x0001
 
-#if __BYTE_ORDER == __BIG_ENDIAN
-#define BADGE_SWAP16(x) ((((x) & 0xff00) >> 8) | (((x) & 0x00ff) << 8))
-#else
-#define BADGE_SWAP16(x) (x)
-#endif
+/* Report payload size */
+#define REPORT_SIZE 9
 
-static unsigned int  did_libhid_init = 0;
-
-#define BADGE_USBVEND	0x04d9
-#define BADGE_USBPROD	0xe002
-
-/* HID Paths */
-#define PATH_LEN 2
-static const unsigned int PATH_IN[2] = { 0xffa00001, 0x00000000 }; /* 1st usage of data page */
-
-/* Badge Protocol 
- * 
- * Control Packet:
- * 	word 1: 0x55aa - ??
- * 	word 2: 0x0100 - Get Data
- *          0x0200 - Set Data
- * 	word 3: address (little endian)
- * 	word 4: length (little endian)
+/**
+ * Badge Protocol (Report #0)
+ *
+ * Data (16-bit words):
+ *	word 1: 0x55aa - ??
+ *	word 2: 0x0100 - Get Data
+ *	        0x0200 - Set Data
+ *	word 3: address
+ *	word 4: length
  *
  * Data follows.
  *
  * Addresses:
- * 	Lumanance data is at 0x02.
- * 	Message 1 starts at 0x08.
- * 	Message 2 starts at 0x98.
- * 	Message 3 starts at 0x128.
- * 	Message 4 starts at 0x1B8.
- * 	Message 5 starts at 0x248
- * 	Message 6 starts at 0x508.
+ *	Lumanance data is at 0x02.
+ *	Message 1 starts at 0x08.
+ *	Message 2 starts at 0x98.
+ *	Message 3 starts at 0x128.
+ *	Message 4 starts at 0x1B8.
+ *	Message 5 starts at 0x248
+ *	Message 6 starts at 0x508.
  */
-static const unsigned char packet[8]  = { 0x55, 0xAA, 0x01, 0x00, 0x00, 0x00, 0x08, 0x00 };
+static const unsigned char report[REPORT_SIZE]  = {
+	0x00, 0x55, 0xaa, 0x02, 0x00, 0x00, 0x00, 0x08, 0x00
+};
 
-badge_t *badge_new() {
-	badge_t *badge;
-	HIDInterface *hid;
-	HIDInterfaceMatcher matcher = {BADGE_USBVEND, BADGE_USBPROD, NULL, NULL, 0};
+static struct badge badge;
+static hid_device *device = NULL;
+static unsigned char buf[REPORT_SIZE];
 
-	/* Initialize libhid */
-	if (!did_libhid_init) {
-		if (hid_init() != HID_RET_SUCCESS) return NULL;
-		did_libhid_init = 1;
-	}
+/**
+ * Claim the first badge found.
+ *
+ * \return pointer to the \a badge struct if found, NULL otherwise.
+ */
+struct badge *badge_open(void)
+{
+	int is_hidraw = 0;
+	struct hid_device_info *devs = NULL, *cur_dev;
 
-	/* Allocate a new badge_t */
-	if (!(badge = calloc(sizeof(badge_t),1))) {
-		hid_cleanup();
-		return NULL;
-	}
+	hid_init();
+	memset(&badge, 0, sizeof(struct badge));
+	devs = hid_enumerate(BADGE_VID, BADGE_PID);
+	if (!devs) goto err;
 
-	/* Allocate a new HIDInterface */
-	if (!(hid = hid_new_HIDInterface())) {
-		free(badge);
-		hid_cleanup();
-		return NULL;
-	}
+	cur_dev = devs;
+	do {
+		/* XXX: hidapi's usage page info is worthless with hidraw */
+		is_hidraw = strstr(cur_dev->path, "/dev/") != NULL;
 
-	/* Detach any kernel drivers hogging the device, and claim it. */
-	if (hid_force_open(hid,0,&matcher,3) != HID_RET_SUCCESS) {
-		free(badge);
-		hid_cleanup();
-		return NULL;
-	}
+		if (!is_hidraw &&
+		    cur_dev->usage      == BADGE_USAGE &&
+		    cur_dev->usage_page == BADGE_USAGE_PAGE)
+			break;
 
-	badge->device = (void *)hid;
-	return badge;
+		/* Search by interface if we don't have the usage info */
+		if ((is_hidraw || (!cur_dev->usage && !cur_dev->usage_page)) &&
+		    cur_dev->interface_number == BADGE_INTERFACE)
+			break;
+		cur_dev = cur_dev->next;
+	} while (cur_dev);
+
+	if (!cur_dev || !(device = hid_open_path(cur_dev->path)))
+		goto err;
+
+	/* Free the enumeration data */
+	hid_free_enumeration(devs);
+	return &badge;
+
+err:
+	if (devs) hid_free_enumeration(devs);
+	return NULL;
 }
 
-void badge_set_data(badge_t *badge) {
-	unsigned char *buf, *tb; unsigned short i,j,tmp;
+/**
+ * Set all data on the badge.
+ *
+ * \return 0 on success, -1 on error.
+ */
+int badge_set_data(void)
+{
+	size_t len;
+	unsigned int address = 0, i, j;
+	if (!device) goto err;
 
-	if (!badge || !badge->device) return;
-	if (!(buf = calloc(8,1))) return;
+	if (badge.luminance < MIN_LUMINANCE)
+		badge.luminance = MIN_LUMINANCE;
+
+	if (badge.luminance > MAX_LUMINANCE)
+		badge.luminance = MAX_LUMINANCE;
 
 	/* Set luminance */
-	memcpy(buf,packet,8); buf[2] = 0x02; 
-	hid_set_output_report((HIDInterface *)(badge->device),PATH_IN,PATH_LEN,buf,8);
-	buf[0] = packet[1]; buf[1] = packet[0]; buf[2] = (badge->luminance & 0xff);
-	hid_set_output_report((HIDInterface *)(badge->device),PATH_IN,PATH_LEN,buf,8);
+	memcpy(buf, report, REPORT_SIZE);
+	if (hid_write(device, buf, REPORT_SIZE) < 0)
+		goto err;
+
+	memset(buf, 0, REPORT_SIZE);
+	buf[1] = report[2];
+	buf[2] = report[1];
+	buf[3] = badge.luminance;
+	if (hid_write(device, buf, REPORT_SIZE) < 0)
+		goto err;
 
 	/* Set messages */
-	memcpy(buf,packet,8); buf[2] = 0x02; 
+	memcpy(buf, report, REPORT_SIZE);
+	for (i = 0; i < N_MESSAGES; i++, address += 0x88) {
+		if (i == 5) address = 0x0508;
+		else address += 8;
+		len = badge.messages[i].length + 4;
 
-	for (j=0;j<6;j++) {
-		tmp = *(unsigned short *)(buf+4) + 8; SET_OFFSET(buf,tmp);
-		if (j == 5) SET_OFFSET(buf,0x508);
-		SET_LEN(buf,badge->messages[j].length + 4);
-		hid_set_output_report((HIDInterface *)(badge->device),PATH_IN,PATH_LEN,buf,8);
+		/**
+		 * Set the destination address and message
+		 * length.
+		 */
+		buf[5] = address & 0xff;
+		buf[6] = (address >> 8) & 0xff;
+		buf[7] = len & 0xff;
+		buf[8] = (len >> 8) & 0xff;
+		if (hid_write(device, buf, REPORT_SIZE) < 0)
+			goto err;
 
-		tb = calloc(8,1);
-		*(unsigned short *)(tb)  = BADGE_SWAP16(badge->messages[j].length);
-		*(unsigned char *)(tb+2) = badge->messages[j].speed;
-		*(unsigned char *)(tb+3) = badge->messages[j].action;
-		memcpy(tb+4,badge->messages[j].data,(badge->messages[j].length < 4) ? badge->messages[j].length : 4);
-		hid_set_output_report((HIDInterface *)(badge->device),PATH_IN,PATH_LEN,tb,8);
-		free(tb);
+		if (badge.messages[i].speed > MAX_SPEED)
+			badge.messages[i].speed = MAX_SPEED;
 
-		for (i=4;i<badge->messages[j].length;i+=8) {
-			if ((badge->messages[j].length - i) < 8) {
-				tb = calloc(8,1);
-				memcpy(tb,badge->messages[j].data+i,badge->messages[j].length-i);
-			  	hid_set_output_report((HIDInterface *)(badge->device),PATH_IN,PATH_LEN,tb,8);
-				free(tb);
-			} else hid_set_output_report((HIDInterface *)(badge->device),PATH_IN,PATH_LEN,badge->messages[j].data+i,8);
+		/**
+		 * Write the message properties, and the first
+		 * 4 bytes of the message's data.
+		 */
+		len -= 4;
+		buf[1] = len & 0xff;
+		buf[2] = (len >> 8) & 0xff;
+		buf[3] = badge.messages[i].speed;
+		buf[4] = badge.messages[i].action;
+		memcpy(buf + 5, badge.messages[i].data, (len < 4) ? len : 4);
+		if (hid_write(device, buf, REPORT_SIZE) < 0)
+			goto err;
+
+		/* Write the remainder of the message data. */
+		for (j = 4; j < len; j += 8) {
+			memset(buf, 0, REPORT_SIZE);
+			memcpy(buf+1, badge.messages[i].data + j,
+			       ((len - j) < 8) ? (len - j) : 8);
+			if (hid_write(device, buf, REPORT_SIZE) < 0)
+				goto err;
 		}
-		tmp = *(unsigned short *)(buf+4) + 0x88; SET_OFFSET(buf,tmp);
 	}
 
-	free(buf);
+	return 0;
+
+err:
+	return -1;
 }
 
-void badge_get_data(badge_t *badge) {
-	unsigned char *iobuf, *buf, *tb; unsigned short i,j,tmp,tmp2;
-
-	if (!badge || !badge->device) return;
-	if (!(buf = calloc(8,1))) return;
-	if (!(iobuf = calloc(8,1))) {
-		free(buf);
-		return;
-	}
+int badge_get_data(void)
+{
+	size_t len;
+	unsigned int i, j, address, tmp;
+	if (!device) goto err;
 
 	/* Get luminance */
-	hid_set_output_report((HIDInterface *)(badge->device),PATH_IN,PATH_LEN,packet,8);
-	hid_interrupt_read((HIDInterface *)(badge->device),USB_ENDPOINT_IN+1,iobuf,8,0);
-	badge->luminance = iobuf[2];
+	memcpy(buf, report, REPORT_SIZE);
+	buf[3] = 0x01;
+	if (hid_write(device, buf, REPORT_SIZE) < 0 ||
+	    hid_read_timeout(device, buf, REPORT_SIZE, 250) < 0)
+		goto err;
+	badge.luminance = buf[3];
 
 	/* Get messages */
-	memcpy(buf,packet,8);
-	memset(iobuf,0,8); 
-	tb = calloc(8,1);
-	memcpy(tb,buf,8);
+	for (i = 0, address = 0x08; i < N_MESSAGES; i++, address += 0x88) {
+		memcpy(buf, report, REPORT_SIZE);
+		buf[3] = 0x01;
+		if (i == 5) address = 0x0508;
+		else address += 8;
 
-	for (j=0;j<6;j++) {
-		tmp = *(unsigned short *)(buf+4) + 8; SET_OFFSET(buf,tmp); 
-		if (j == 5) SET_OFFSET(buf,0x508);
-		hid_set_output_report((HIDInterface *)(badge->device),PATH_IN,PATH_LEN,buf,8);
-		hid_interrupt_read((HIDInterface *)(badge->device),USB_ENDPOINT_IN+1,iobuf,8,0);
-		badge->messages[j].type   = ((j < 4) ? BADGE_MSG_TYPE_TEXT : BADGE_MSG_TYPE_BITMAP);
-		badge->messages[j].length = (j >= 4 || (j < 4 && BADGE_SWAP16(*(unsigned short *)(iobuf)) <= 0x88)) ? BADGE_SWAP16(*(unsigned short *)(iobuf)) : 0;
-		badge->messages[j].speed  = *(unsigned char *)(iobuf+2);
-		badge->messages[j].action = *(unsigned char *)(iobuf+3);
+		/* Get the message properties */
+		buf[5] = address & 0xff;
+		buf[6] = (address >> 8) & 0xff;
+		if (hid_write(device, buf, REPORT_SIZE) < 0 ||
+		    hid_read_timeout(device, buf, REPORT_SIZE, 250) < 0)
+			goto err;
 
-		if (!(badge->messages[j].data = calloc(badge->messages[j].length+1,1))) {
-			free(iobuf);
-			free(buf);
-			free(tb);
-			return;
-		} if (badge->messages[j].length > 0) memcpy(badge->messages[j].data,iobuf+4,4); i = 4;
+		badge.messages[i].type =  (i < 4) ? BADGE_MSG_TYPE_TEXT :
+		                                    BADGE_MSG_TYPE_BITMAP;
+		badge.messages[i].speed  = buf[2];
+		badge.messages[i].action = buf[3];
+		badge.messages[i].length = (unsigned)((buf[1] << 8) | buf[0]);
 
-		/* Get the next 8 bytes, etc. */
-		memcpy(tb,buf,8);
-		while (i < badge->messages[j].length) {	
-			tmp2 = *(unsigned short *)(tb+4) + 8; SET_OFFSET(tb,tmp2);
-			hid_set_output_report((HIDInterface *)(badge->device),PATH_IN,PATH_LEN,tb,8);
-			hid_interrupt_read((HIDInterface *)(badge->device),USB_ENDPOINT_IN+1,iobuf,8,0);
-			if ((badge->messages[j].length - i) < 8) 
-				 memcpy(badge->messages[j].data+i,iobuf,(badge->messages[j].length - i));
-			else memcpy(badge->messages[j].data+i,iobuf,8);
-			i += 8;
+		if (i < 4 && badge.messages[i].length > 0x88)
+			badge.messages[i].length = 0;
+
+		if (!badge.messages[i].length)
+			continue;
+
+		/* Allocate space for the message */
+		badge.messages[i].data = malloc(badge.messages[i].length);
+		if (!badge.messages[i].data)
+			goto err;
+
+		/* Copy the first four bytes */
+		memcpy(badge.messages[i].data, buf + 4, 4);
+
+		/* Get the rest of the message data */
+		tmp = address + 8;
+		len = badge.messages[i].length;
+		for (j = 4; j < badge.messages[i].length; j += 8, tmp += 8) {
+			memcpy(buf, report, REPORT_SIZE);
+			buf[3] = 0x01;
+			buf[5] = tmp & 0xff;
+			buf[6] = (tmp >> 8) & 0xff;
+			if (hid_write(device, buf, REPORT_SIZE) < 0 ||
+			    hid_read_timeout(device, buf, REPORT_SIZE, 250) < 0)
+				goto err;
+			memcpy(badge.messages[i].data + j, buf,
+			       ((len - j) < 8) ? len - j : 8);
 		}
 
-		tmp = *(unsigned short *)(buf+4) + 0x88; SET_OFFSET(buf,tmp);
 	}
 
-	free(tb);
-	free(iobuf);
-	free(buf);
+	return 0;
+err:
+	return -1;
 }
 
-void badge_free(badge_t *badge) {
-	unsigned int i;
-	if (!badge) return;
+/**
+ * Release the badge.
+ */
+void badge_close(void)
+{
+	int i;
 
-	for (i=0;i<6;i++) if (badge->messages[i].data) free(badge->messages[i].data);
-	hid_close((HIDInterface *)(badge->device));
-	hid_delete_HIDInterface((HIDInterface **)&(badge->device));
-	hid_cleanup();
-	free(badge);
+	for (i = 0;i < N_MESSAGES; i++) {
+		if (badge.messages[i].data)
+			free(badge.messages[i].data);
+	}
+
+	hid_close(device);
+	hid_exit();
+	memset(&badge, 0, sizeof(struct badge));
+	device = NULL;
 }
 
