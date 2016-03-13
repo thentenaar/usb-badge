@@ -12,7 +12,7 @@
 
 #include "badge.h"
 
-const char *actions[6] = {
+static const char *actions[MAX_ACTION + 1] = {
 	"Move",
 	"Flash, then Move",
 	"Scroll Up",
@@ -21,37 +21,58 @@ const char *actions[6] = {
 	"Freeze"
 };
 
-int main(int argc, char **argv) {
-	int i; badge_t *badge;
+int main(int argc, char *argv[])
+{
+	int i; struct badge *badge;
+	(void)argc;
+	(void)argv;
 
 	/* Allocate a new badge structure, as well as the USB device */
-	if (!(badge = badge_new())) {
-		printf("Unable to allocate badge structure or insufficent permissions!\n");
-		exit(1);
+	if (!(badge = badge_open())) {
+		fputs("Unable open badge\n", stderr);
+		goto err;
 	}
 
 	/* Read all the data on the badge */
-	badge_get_data(badge);
+	if (badge_get_data()) {
+		fputs("Unable to read badge data\n", stderr);
+		goto err;
+	}
 
 	/* Dump the data */
 	printf("Luminance: %d\n",badge->luminance);
-	for (i=0;i<6;i++) {
-		printf("Message #%d: %s\n",i+1,(badge->messages[i].type ? "Bitmap" : "Text"));
-		printf("\tSpeed: %d\n",badge->messages[i].speed+1);
-		printf("\tAction: %s\n",((badge->messages[i].action <= 5) ? actions[badge->messages[i].action] : "Invalid"));
-		if (i < 4) printf("\tText: \"%s\"\n",badge->messages[i].data);
+	for (i=0; i<N_MESSAGES; i++) {
+		printf("Message #%d: %s\n", i + 1,
+		       badge->messages[i].type ? "Bitmap" : "Text");
+		printf("\tSpeed: %d\n", badge->messages[i].speed + 1);
+		printf("\tAction: %s\n",
+		       ((badge->messages[i].action <= 5) ?
+		         actions[badge->messages[i].action] : "Invalid"));
+		if (i < 4) printf("\tText: \"%s\"\n", badge->messages[i].data);
 		printf("\n");
 	}
+
+	if (badge->messages[0].data)
+		free(badge->messages[0].data);
 
 	/* Set luminance and a message */
 	badge->luminance = 2;
 	badge->messages[0].speed  = 3;
-	badge->messages[0].action = 5; free(badge->messages[0].data);
-	badge->messages[0].data   = strdup("Linux");
-	badge->messages[0].length = strlen(badge->messages[0].data);
+	badge->messages[0].action = 5;
+	badge->messages[0].data   = malloc(6); /* free()'d in badge_close */
+	badge->messages[0].length = 5;
+	memcpy(badge->messages[0].data, "Linux", 6);
 
-	badge_set_data(badge);
-	badge_free(badge);
-	return 0;
+	if (badge_set_data()) {
+		fputs("Unable to set badge data\n", stderr);
+		goto err;
+	}
+
+	badge_close();
+	return EXIT_SUCCESS;
+
+err:
+	badge_close();
+	exit(EXIT_FAILURE);
 }
 
