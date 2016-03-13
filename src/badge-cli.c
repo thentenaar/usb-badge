@@ -1,16 +1,9 @@
 /**
  * Control Software for the Inland (FURI KEYSHINE) USB LED Badge
- * Copyright (C) 2011 Tim Hentenaar. http://hentenaar.com
+ * Copyright (C) 2009-2016 Tim Hentenaar.
  *
- * CLI code and udev rules proposed and contributed by Jeff Jahr - http://www.jeffrika.com adapted and integrated by Tim Hentenaar.
- *
- * Option for sending raw hex contributed by Cody Boisclair (http://www.zone38.net/).
- *
- * This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the 
- * Free Software Foundation, either version 3 of the License, or (at your option) any later version. This program is distributed in the hope that 
- * it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
- * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with this 
- * program. If not, see http://www.gnu.org/licenses/. 
+ * This code is licenced under the Simplified BSD License.
+ * See the LICENSE file for details.
  */
 
 #include <stdio.h>
@@ -166,5 +159,3 @@ int main(int argc, char **argv) {
 	return 0;
 }
 
-
-/* vim: set ts=4: */

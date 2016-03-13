@@ -1,3 +1,11 @@
+/**
+ * Control Software for the Inland (FURI KEYSHINE) USB LED Badge
+ * Copyright (C) 2009-2016 Tim Hentenaar.
+ *
+ * This code is licenced under the Simplified BSD License.
+ * See the LICENSE file for details.
+ */
+
 /* GdkPixbuf RGBA C-Source image dump 1-byte-run-length-encoded */
 
 static const GdkPixdata WINDOW_ICON = {
