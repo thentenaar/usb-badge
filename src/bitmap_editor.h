@@ -15,26 +15,28 @@
 /**
  * The bitmap editor widget.
  *
- * Basically, this uses a GtkImage with a GdkPixbuf/GdkPixmap to draw both
- * the large image (for the dialog), and the small image (drawn to the main window.)
+ * Basically, this uses a GtkImage with a GdkPixbuf/GdkPixmap to draw
+ * both the large image (for the dialog), and the small image (drawn to
+ * the main window.)
  */
-typedef struct bitmap_editor {
-	GtkWidget     *image;		/**< The large image is 16 : 1 of the actual bitmap */
+struct bitmap_editor {
+	GtkWidget     *image; /**< 16 : 1 scale of the actual bitmap */
 	GtkWidget     *evbox;
 	GdkPixmap     *pixmap;
 	GdkGC         *gc;
 	GtkWidget     *dialog;
 	GtkWidget     *scroll;
 	GtkWidget     *popup;
-	GtkWidget     *image_small; /**< The small image is 3 : 1 of the actual bitmap. */
+	GtkWidget     *image_small; /**< 3 : 1 scale of the actual bitmap. */
 	GtkWidget     *evbox_small;
 	GdkPixmap     *pixmap_small;
 	GdkGC         *gc_small;
-	unsigned char **bitmap;	/**< The bitmap we'll send to the device */
-	unsigned short length;	/**< Used columns (bytes) */
-} bitmap_editor_t;
+	unsigned char **bitmap; /**< The bitmap we'll send to the device */
+	unsigned int    length; /**< Used columns (bytes) */
+};
 
-bitmap_editor_t *bitmap_editor_new(unsigned char **bmp, unsigned short ncols);
-void bitmap_editor_free(bitmap_editor_t *ed);
+struct bitmap_editor *bitmap_editor_new(unsigned char **bmp,
+                                        unsigned int ncols);
+void bitmap_editor_free(struct bitmap_editor *ed);
 
 #endif	/* BITMAP_EDITOR_H */

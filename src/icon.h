@@ -6,6 +6,11 @@
  * See the LICENSE file for details.
  */
 
+/* Supress warnings for pixel_data being non-const */
+#ifdef __GNUC__
+#pragma GCC system_header
+#endif
+
 /* GdkPixbuf RGBA C-Source image dump 1-byte-run-length-encoded */
 
 static const GdkPixdata WINDOW_ICON = {
